@@ -31,10 +31,9 @@ regex_flags = re.IGNORECASE | re.DOTALL | re.MULTILINE
 # Instantiate a logger object
 LOGGER = Logger(name='ExtractItems').get_logger()
 
-
 class HtmlStripper(HTMLParser):
     """
-    Strips HTML tags
+    Strips HTML tags except tables
     """
 
     def __init__(self):
@@ -43,6 +42,24 @@ class HtmlStripper(HTMLParser):
         self.strict = False
         self.convert_charrefs = True
         self.fed = []
+        self.in_table = False
+        self.count_table = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot', 'caption'):
+            self.in_table = True
+            if tag == 'table':
+                self.count_table += 1
+                self.fed.append(f'\n Table {self.count_table}:\n')
+            self.fed.append('<{}>'.format(tag))
+
+    def handle_endtag(self, tag):
+        if tag in ('table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot', 'caption'):
+            self.fed.append('</{}>'.format(tag))
+            if tag == 'table':
+                self.fed.append('\n')
+            if tag == 'table':
+                self.in_table = False
 
     def handle_data(self, d):
         self.fed.append(d)
@@ -53,7 +70,6 @@ class HtmlStripper(HTMLParser):
     def strip_tags(self, html):
         self.feed(html)
         return self.get_data()
-
 
 class ExtractItems:
     def __init__(
@@ -118,7 +134,7 @@ class ExtractItems:
         """
 
         text = re.sub(r'[\xa0]', ' ', text)
-        text = re.sub(r'[\u200b]', ' ', text)
+        text = re.sub(r'[\u200b\u201c\u201b]', ' ', text)
 
         text = re.sub(r'[\x91]', '‘', text)
         text = re.sub(r'[\x92]', '’', text)
@@ -131,6 +147,7 @@ class ExtractItems:
         text = re.sub(r'[\x99]', '™', text)
 
         text = re.sub(r'[\u2010\u2011\u2012\u2013\u2014\u2015]', '-', text)
+        text = re.sub(r'[\u2019]', '\'', text)
 
         def remove_whitespace(match):
             ws = r'[^\S\r\n]'
@@ -439,7 +456,7 @@ class ExtractItems:
 
         text = ExtractItems.strip_html(str(doc_10k))
         text = ExtractItems.clean_text(text)
-
+        
         positions = []
         all_items_null = True
         for i, item_index in enumerate(self.items_list):
@@ -451,7 +468,6 @@ class ExtractItems:
                 if item_section != '':
                     all_items_null = False
                 json_content[f'item_{item_index}'] = item_section
-
         if all_items_null:
             LOGGER.info(f'\nCould not extract any item for {absolute_10k_filename}')
             return None
