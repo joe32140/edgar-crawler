@@ -36,13 +36,14 @@ class HtmlStripper(HTMLParser):
     Strips HTML tags except tables
     """
 
-    def __init__(self):
+    def __init__(self, table_only=False):
         super().__init__()
         self.reset()
         self.strict = False
         self.convert_charrefs = True
         self.fed = []
         self.in_table = False
+        self.table_only = table_only
         self.count_table = 0
 
     def handle_starttag(self, tag, attrs):
@@ -62,7 +63,11 @@ class HtmlStripper(HTMLParser):
                 self.in_table = False
 
     def handle_data(self, d):
-        self.fed.append(d)
+        if self.table_only:
+            if self.in_table:
+                self.fed.append(d)
+        else:
+            self.fed.append(d)
 
     def get_data(self):
         return ''.join(self.fed)
@@ -75,6 +80,7 @@ class ExtractItems:
     def __init__(
             self,
             remove_tables: bool,
+            table_only: bool,
             items_to_extract: List,
             raw_files_folder: str,
             extracted_files_folder: str,
@@ -82,6 +88,7 @@ class ExtractItems:
     ):
 
         self.remove_tables = remove_tables
+        self.table_only = table_only
         self.items_list = [
             '1', '1A', '1B', '2', '3', '4', '5', '6', '7', '7A',
             '8', '9', '9A', '9B', '10', '11', '12', '13', '14', '15'
@@ -92,7 +99,7 @@ class ExtractItems:
         self.skip_extracted_filings = skip_extracted_filings
 
     @staticmethod
-    def strip_html(html_content):
+    def strip_html(html_content, table_only=False):
         """
         Strips the html content to get clean text
         :param html_content: The HTML content
@@ -103,7 +110,7 @@ class ExtractItems:
         html_content = re.sub(r'(<\s*/\s*(div|tr|p|li|)\s*>)', r'\1\n\n', html_content)
         html_content = re.sub(r'(<br\s*>|<br\s*/>)', r'\1\n\n', html_content)
         html_content = re.sub(r'(<\s*/\s*(th|td)\s*>)', r' \1 ', html_content)
-        html_content = HtmlStripper().strip_tags(html_content)
+        html_content = HtmlStripper(table_only=table_only).strip_tags(html_content)
 
         return html_content
 
@@ -454,7 +461,7 @@ class ExtractItems:
         for item_index in self.items_to_extract:
             json_content[f'item_{item_index}'] = ''
 
-        text = ExtractItems.strip_html(str(doc_10k))
+        text = ExtractItems.strip_html(str(doc_10k), self.table_only)
         text = ExtractItems.clean_text(text)
         
         positions = []
@@ -518,6 +525,7 @@ def main():
 
     extraction = ExtractItems(
         remove_tables=config['remove_tables'],
+        table_only=config['table_only'],
         items_to_extract=config['items_to_extract'],
         raw_files_folder=raw_filings_folder,
         extracted_files_folder=extracted_filings_folder,

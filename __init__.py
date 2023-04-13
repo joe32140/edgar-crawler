@@ -1,6 +1,6 @@
 import os
-DATASET_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'datasets')
-LOGGING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'logs')
+DATASET_DIR = "/data/SEC-10k/"
+LOGGING_DIR = "/data/SEC-10k/logs/"
 
 if not os.path.exists(DATASET_DIR):
 	os.mkdir(DATASET_DIR)
